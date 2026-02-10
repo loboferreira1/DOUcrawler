@@ -42,7 +42,7 @@ def test_job_process_dou_flow(mock_dependencies):
     mock_storage.save_match.assert_called()
 
 def test_main_entry_setup():
-    """Test that main initializes config and scheduler."""
+    """Testa que main inicializa configuração e agendador."""
     with patch("src.main.scheduler") as mock_sched, \
          patch("src.main.config") as mock_conf, \
          patch("src.main.time.sleep", side_effect=KeyboardInterrupt): 

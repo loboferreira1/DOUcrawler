@@ -16,15 +16,15 @@ def sample_match():
     )
 
 def test_save_match_creates_file(tmp_path, sample_match):
-    """Test that saving a match creates a new file if it doesn't exist."""
+    """Testa se salvar uma correspondência cria um novo arquivo se ele não existir."""
     data_dir = tmp_path / "data"
     cfg = StorageConfig(output_dir=str(data_dir))
     
     storage.save_match(sample_match, cfg)
     
-    # Expected file path: data/teste.jsonl (slugified keyword?)
-    # Spec says "one file per keyword/category". 
-    # Keyword is "teste".
+    # Caminho de arquivo esperado: data/teste.jsonl (palavra-chave 'slugified'?)
+    # Spec diz "um arquivo por palavra-chave/categoria".
+    # Palavra-chave é "teste".
     expected_file = data_dir / "teste.jsonl"
     
     assert expected_file.exists()
@@ -35,14 +35,14 @@ def test_save_match_creates_file(tmp_path, sample_match):
     assert saved_data["url"] == "http://teste.com"
 
 def test_save_match_appends(tmp_path, sample_match):
-    """Test that saving appends to existing file."""
+    """Testa se salvar anexa ao arquivo existente."""
     data_dir = tmp_path / "data"
     cfg = StorageConfig(output_dir=str(data_dir))
     
-    # Save once
+    # Salva uma vez
     storage.save_match(sample_match, cfg)
     
-    # Save again (simulate different match same keyword)
+    # Salva novamente (simula correspondência diferente mesma data)
     sample_match_2 = MatchEntry(
         keyword="teste",
         context="contexto 2",
@@ -62,7 +62,7 @@ def test_save_match_appends(tmp_path, sample_match):
     assert json.loads(lines[1])["context"] == "contexto 2"
 
 def test_filename_sanity_sanitization(tmp_path):
-    """Test using a keyword with spaces/special chars generates valid filename."""
+    """Testa se o uso de uma palavra-chave com espaços/caracteres especiais gera um nome de arquivo válido."""
     bad_keyword = "fundação nacional/funai"
     match = MatchEntry(
         keyword=bad_keyword,
@@ -79,13 +79,13 @@ def test_filename_sanity_sanitization(tmp_path):
     
     storage.save_match(match, cfg)
     
-    # Should probably replace / with _ or similar
-    # Check directory listing to see what was created
+    # Provavelmente deve substituir / por _ ou similar
+    # Verifica listagem de diretório para ver o que foi criado
     created_files = list(data_dir.glob("*.jsonl"))
     assert len(created_files) == 1
     filename = created_files[0].name
     
     assert "/" not in filename
     assert "\\" not in filename
-    assert "fundacao" in filename.lower() or "funai" in filename.lower() # Depends on slugify logic
-    # Basic slugify usually: fundacao-nacional-funai.jsonl
+    assert "fundacao" in filename.lower() or "funai" in filename.lower() # Depende da lógica de slugify
+    # Slugify básico geralmente: fundacao-nacional-funai.jsonl

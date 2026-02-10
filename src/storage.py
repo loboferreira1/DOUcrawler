@@ -7,31 +7,31 @@ from .models import MatchEntry, StorageConfig
 
 def slugify(text: str) -> str:
     """
-    Sanitizes a string to be safe for filenames.
-    Replaces non-alphanumeric chars with hyphens, lowercases.
+    Higieniza uma string para ser segura para nomes de arquivos.
+    Substitui caracteres não alfanuméricos por hifens, minúsculas.
     """
-    # Replace non-alphanumeric characters (matches [^a-zA-Z0-9]) with -
+    # Substitui caracteres não alfanuméricos (corresponde a [^a-zA-Z0-9]) por -
     text = re.sub(r'[^a-zA-Z0-9]', '-', text)
-    # Collapse multiple hyphens
+    # Colapsa múltiplos hifens
     text = re.sub(r'-+', '-', text)
-    # Strip leading/trailing hyphens and lowercase
+    # Remove hifens à esquerda/direita e converte para minúsculas
     return text.strip('-').lower()
 
 def save_match(match: MatchEntry, config: StorageConfig) -> None:
     """
-    Appends a match entry to a JSONL file dedicated to its keyword/category.
-    Creates directory and file if they don't exist.
+    Anexa uma entrada de correspondência a um arquivo JSONL dedicado à sua palavra-chave/categoria.
+    Cria diretório e arquivo se não existirem.
     """
     output_dir = Path(config.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     
-    # Determine filename from keyword
+    # Determina o nome do arquivo a partir da palavra-chave
     safe_keyword = slugify(match.keyword)
     file_path = output_dir / f"{safe_keyword}.jsonl"
     
-    # Prepare data
+    # Prepara dados
     data = asdict(match)
     
-    # Append to file
+    # Anexa ao arquivo
     with open(file_path, "a", encoding="utf-8") as f:
         f.write(json.dumps(data, ensure_ascii=False) + "\n")

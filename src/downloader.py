@@ -11,27 +11,27 @@ logger = structlog.get_logger()
 BASE_URL = "https://www.in.gov.br"
 URL_LEITURA = f"{BASE_URL}/leiturajornal"
 
-# Mimic a standard browser to avoid being blocked
+# Imita um navegador padrão para evitar bloqueios
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 }
 
 def get_section_url(section: str, date: datetime.date) -> str:
     """
-    Constructs the URL for a specific DOU section and date.
+    Constrói a URL para uma seção específica do DOU e data.
     Args:
         section: 'dou1', 'dou2', 'dou3', etc.
-        date: datetime.date object.
-    Returns:
-        Full URL string like 'https://www.in.gov.br/leiturajornal?secao=dou1&data=DD-MM-YYYY'
+        date: objeto datetime.date.
+    Retorna:
+        String URL completa como 'https://www.in.gov.br/leiturajornal?secao=dou1&data=DD-MM-YYYY'
     """
     date_str = date.strftime("%d-%m-%Y")
     return f"{URL_LEITURA}?secao={section}&data={date_str}"
 
 def is_retryable_error(exception):
     """
-    Returns True if the exception is a retryable network error or server error (5xx).
-    Returns False for 4xx errors (except 429 Too Many Requests).
+    Retorna True se a exceção for um erro de rede repetível ou erro do servidor (5xx).
+    Retorna False para erros 4xx (exceto 429 Too Many Requests).
     """
     if isinstance(exception, requests.HTTPError):
         if exception.response is not None:
@@ -50,7 +50,7 @@ def is_retryable_error(exception):
 )
 def fetch_content(url: str) -> str:
     """
-    Fetches the content of a URL with retries.
+    Busca o conteúdo de uma URL com tentativas repetidas.
     """
     logger.info("fetching_url", url=url)
     try:
@@ -63,9 +63,9 @@ def fetch_content(url: str) -> str:
 
 def fetch_article_urls(section: str, date: datetime.date) -> list[str]:
     """
-    Fetches all article URLs for a given section and date.
-    Uses Regex to extract JSON data embedded in the page, which is more robust
-    for the 'Leitura do Jornal' page which uses client-side rendering.
+    Busca todas as URLs de artigos para uma dada seção e data.
+    Usa Regex para extrair dados JSON embutidos na página, o que é mais robusto
+    para a página 'Leitura do Jornal' que usa renderização no lado do cliente.
     """
     start_url = get_section_url(section, date)
     collected_urls = set()
@@ -73,14 +73,14 @@ def fetch_article_urls(section: str, date: datetime.date) -> list[str]:
     
     logger.info("start_crawling_section", section=section, date=str(date))
     
-    # regex for "urlTitle": "slug-of-article"
-    # Handles potential spacing variations
+    # regex para "urlTitle": "slug-do-artigo"
+    # Lida com variações potenciais de espaçamento
     regex_slug = re.compile(r'"urlTitle"\s*:\s*"([^"]+)"')
     
     try:
         html = fetch_content(current_url)
         
-        # 1. Regex Extraction (Primary Strategy for Data)
+        # 1. Extração por Regex (Estratégia Primária para Dados)
         slugs = regex_slug.findall(html)
         logger.info("regex_extraction", count=len(slugs), url=current_url)
         

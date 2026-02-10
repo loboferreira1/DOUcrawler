@@ -5,7 +5,7 @@ import requests
 import responses
 from src import downloader
 
-# Sample responses with JSON embedded in script tags (matching real site behavior)
+# Respostas de exemplo com JSON embutido em tags script (correspondendo ao comportamento real do site)
 HTML_LIST_PAGE_JSON = """
 <html>
     <head>
@@ -31,7 +31,7 @@ def mocked_responses():
         yield rsps
 
 def test_generate_daily_url():
-    """Test URL generation for different sections and dates."""
+    """Testa a geração de URL para diferentes seções e datas."""
     date = datetime.date(2026, 2, 10)
     
     url_s1 = downloader.get_section_url("dou1", date)
@@ -42,7 +42,7 @@ def test_generate_daily_url():
     assert "data=10-02-2026" in url_s3
 
 def test_fetch_article_urls_success(mocked_responses):
-    """Test fetching article URLs using Regex extraction."""
+    """Testa a busca de URLs de artigos usando extração por Regex."""
     date = datetime.date(2026, 2, 10)
     base_url = "https://www.in.gov.br/leiturajornal?secao=dou1&data=10-02-2026"
 
@@ -61,7 +61,7 @@ def test_fetch_article_urls_success(mocked_responses):
     assert "https://www.in.gov.br/web/dou/-/aviso-manual-3" in urls
 
 def test_fetch_article_urls_empty(mocked_responses):
-    """Test fetching on a day with no edition (or empty)."""
+    """Testa a busca em um dia sem edição (ou vazia)."""
     date = datetime.date(2026, 2, 10)
     url = "https://www.in.gov.br/leiturajornal?secao=dou1&data=10-02-2026"
     
@@ -76,7 +76,7 @@ def test_fetch_article_urls_empty(mocked_responses):
     assert urls == []
 
 def test_fetch_content_success(mocked_responses):
-    """Test fetching single article content."""
+    """Testa a busca de conteúdo de artigo único."""
     url = "https://www.in.gov.br/test-article"
     html = "<html>Content</html>"
     
@@ -86,10 +86,10 @@ def test_fetch_content_success(mocked_responses):
     assert content == html
 
 def test_fetch_content_retry_logic(mocked_responses):
-    """Test that it retries on 5xx errors."""
+    """Testa se rede tenta novamente em erros 5xx."""
     url = "https://www.in.gov.br/retry-me"
     
-    # Fail twice, succeed third
+    # Falha duas vezes, sucesso na terceira
     mocked_responses.add(responses.GET, url, status=500)
     mocked_responses.add(responses.GET, url, status=502)
     mocked_responses.add(responses.GET, url, body="ok", status=200)
@@ -99,10 +99,10 @@ def test_fetch_content_retry_logic(mocked_responses):
     assert len(mocked_responses.calls) == 3
 
 def test_fetch_content_404_logic(mocked_responses):
-    """Test 404 should not retry infinitely but raise error? Or return None?
-    Spec said 'Retry on network failures', 'Silent exit on No Edition'.
-    For individual article 404, we probably just want to skip or fail fast.
-    Let's assume fail fast for now so we catch broken links.
+    """Testa se 404 não deve tentar repetidamente infinitamente mas lançar erro? Ou retornar None?
+    Especificação disse 'Repetir em falhas de rede', 'Saída silenciosa em Sem Edição'.
+    Para artigo individual 404, provavelmente queremos apenas pular ou falhar rápido.
+    Vamos assumir falha rápida por enquanto para capturarmos links quebrados.
     """
     url = "https://www.in.gov.br/missing"
     mocked_responses.add(responses.GET, url, status=404)

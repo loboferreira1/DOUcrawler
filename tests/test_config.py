@@ -22,7 +22,7 @@ def config_file(tmp_path, valid_config_data):
     return str(p)
 
 def test_load_config_valid(config_file):
-    """Test loading a valid configuration file."""
+    """Testa o carregamento de um arquivo de configuração válido."""
     cfg = config.load_config(config_file)
     
     assert isinstance(cfg, Config)
@@ -35,18 +35,18 @@ def test_load_config_valid(config_file):
     assert cfg.logging.file == "test_logs/test.log"
 
 def test_load_config_missing_file():
-    """Test loading a non-existent configuration file."""
+    """Testa o carregamento de um arquivo de configuração inexistente."""
     with pytest.raises(FileNotFoundError):
         config.load_config("non_existent_config.yaml")
 
 def test_load_config_default_values(tmp_path):
-    """Test loading config with missing optional sections to verify defaults."""
-    # Only providing required fields (keywords and schedule time are required by dataclass structure if not defaulted in yaml usage, 
-    # but let's check what src/config.py does. 
-    # Actually src/config.py does: ScheduleConfig(**schedule_data)
-    # ScheduleConfig requires 'time'. 'timezone' has default.
-    # Config requires keywords.
-    # storage and logging have defaults in dataclass.
+    """Testa o carregamento de configuração com seções opcionais faltando para verificar padrões."""
+    # Apenas fornecendo campos obrigatórios (keywords e schedule time são obrigatórios pela estrutura da dataclass se não tiverem padrão no uso yaml,
+    # mas vamos verificar o que src/config.py faz.
+    # Na verdade src/config.py faz: ScheduleConfig(**schedule_data)
+    # ScheduleConfig requer 'time'. 'timezone' tem padrão.
+    # Config requer keywords.
+    # storage e logging têm padrões na dataclass.
     
     minimal_data = {
         "schedule": {"time": "08:00"},
@@ -59,7 +59,7 @@ def test_load_config_default_values(tmp_path):
         
     cfg = config.load_config(str(p))
     
-    # Defaults
+    # Padrões
     assert cfg.schedule.timezone == "America/Sao_Paulo"
     assert cfg.storage.output_dir == "data"
     assert cfg.storage.format == "jsonl"
@@ -67,20 +67,20 @@ def test_load_config_default_values(tmp_path):
     assert cfg.logging.file == "logs/scrapper.log"
 
 def test_setup_logging(config_file):
-    """Test that setup_logging runs without error."""
+    """Testa se setup_logging roda sem erro."""
     cfg = config.load_config(config_file)
-    # We just want to ensure it doesn't crash. 
-    # Verifying actual logging configuration is complex and might interfere with other tests/pytest capture.
-    # But we can check if the file handler was created potentially, strictly speaking setup_logging modifies global state.
+    # Queremos apenas garantir que não trave.
+    # Verificar a configuração real de log é complexo e pode interferir com outros testes/captura do pytest.
+    # Mas podemos verificar se o manipulador de arquivo foi criado potencialmente, estritamente falando setup_logging modifica estado global.
     
-    # Clean up handlers before/after to avoid side effects
+    # Limpa manipuladores antes/depois para evitar efeitos colaterais
     logger = logging.getLogger()
     original_handlers = logger.handlers[:]
     
     try:
         config.setup_logging(cfg)
-        # Check if we didn't crash
+        # Verifica se não travou
         assert True
     finally:
-        # Restore handlers
+        # Restaura manipuladores
         logger.handlers = original_handlers

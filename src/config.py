@@ -10,21 +10,21 @@ from .models import Config, LoggingConfig, ScheduleConfig, StorageConfig
 
 def load_config(config_path: str = "config.yaml") -> Config:
     """
-    Loads configuration from a YAML file and validates expected structure.
-    Returns:
-        Config: Populated configuration object.
-    Throws:
-        FileNotFoundError: If config file is missing.
-        yaml.YAMLError: If config file is invalid.
+    Carrega a configuração de um arquivo YAML e valida a estrutura esperada.
+    Retorna:
+        Config: Objeto de configuração preenchido.
+    Lança:
+        FileNotFoundError: Se o arquivo de configuração estiver faltando.
+        yaml.YAMLError: Se o arquivo de configuração for inválido.
     """
     path = pathlib.Path(config_path)
     if not path.exists():
-        raise FileNotFoundError(f"Config file not found: {config_path}")
+        raise FileNotFoundError(f"Arquivo de configuração não encontrado: {config_path}")
 
     with open(path, "r", encoding="utf-8") as f:
         data = yaml.safe_load(f)
 
-    # Basic structure validation could happen here, but we rely on dataclass mapping
+    # Validação básica de estrutura poderia acontecer aqui, mas confiamos no mapeamento de dataclass
     schedule_data = data.get("schedule", {})
     logging_data = data.get("logging", {})
     storage_data = data.get("storage", {})
@@ -41,18 +41,18 @@ def load_config(config_path: str = "config.yaml") -> Config:
 
 def setup_logging(config: Config) -> None:
     """
-    Configures structlog and standard logging based on configuration.
+    Configura structlog e log padrão com base na configuração.
     """
     log_level = getattr(logging, config.logging.level.upper(), logging.INFO)
     
-    # Configure standard logging to capture library logs (requests, etc)
+    # Configura log padrão para capturar logs de bibliotecas (requests, etc)
     logging.basicConfig(
         format="%(message)s",
         level=log_level,
         handlers=[logging.StreamHandler(sys.stdout)]
     )
 
-    # Configure structlog
+    # Configura structlog
     structlog.configure(
         processors=[
             structlog.stdlib.filter_by_level,
@@ -71,16 +71,16 @@ def setup_logging(config: Config) -> None:
         cache_logger_on_first_use=True,
     )
 
-    # Setup file logging if needed (optional implementation detail)
-    # Using standard logging file handler for simplicity mixed with structlog
+    # Configura log em arquivo se necessário (detalhe de implementação opcional)
+    # Usando manipulador de arquivo de log padrão para simplicidade misturado com structlog
     if config.logging.file:
         log_path = pathlib.Path(config.logging.file)
         log_path.parent.mkdir(parents=True, exist_ok=True)
         
         file_handler = logging.FileHandler(config.logging.file, encoding="utf-8")
         file_handler.setLevel(log_level)
-        # We can reuse the JSON formatter or use a different one
-        # For uniformity, let's keep it structured JSON in file too
+        # Podemos reutilizar o formatador JSON ou usar um diferente
+        # Para uniformidade, vamos manter JSON estruturado no arquivo também
         formatter = structlog.stdlib.ProcessorFormatter(
             processor=structlog.processors.JSONRenderer(),
         )

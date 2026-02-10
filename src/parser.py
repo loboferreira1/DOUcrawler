@@ -3,8 +3,8 @@ from bs4 import BeautifulSoup
 
 def extract_title(html_content: str) -> str:
     """
-    Extracts the title from the HTML content.
-    Returns the text of the <title> tag, or empty string if not found.
+    Extrai o título do conteúdo HTML.
+    Retorna o texto da tag <title>, ou string vazia se não encontrado.
     """
     soup = BeautifulSoup(html_content, "lxml")
     if soup.title and soup.title.string:
@@ -13,35 +13,35 @@ def extract_title(html_content: str) -> str:
 
 def extract_text(html_content: str) -> str:
     """
-    Extracts clean text from HTML, removing scripts, styles, and tags.
-    Preserves original accents and case (storage format).
+    Extrai texto limpo do HTML, removendo scripts, estilos e tags.
+    Preserva acentos originais e maiúsculas/minúsculas (formato de armazenamento).
     """
     soup = BeautifulSoup(html_content, "lxml")
     
-    # Remove unwanted tags
+    # Remove tags indesejadas
     for script in soup(["script", "style", "meta", "noscript"]):
         script.extract()
         
-    # Get text
+    # Obtém texto
     text = soup.get_text(separator=" ")
     
-    # Normalize whitespaces: collapse multiple spaces/newlines into single space
-    # This makes regex matching and storage much cleaner
+    # Normaliza espaços em branco: colapsa múltiplos espaços/novas linhas em espaço único
+    # Isso torna a correspondência regex e o armazenamento muito mais limpos
     clean_text = " ".join(text.split())
     
     return clean_text
 
 def normalize_text(text: str) -> str:
     """
-    Normalizes text for search matching:
-    1. Lowercase
-    2. Remove accents (NFD decomposition -> filter non-spacing marks)
+    Normaliza o texto para correspondência de pesquisa:
+    1. Minúsculas
+    2. Remove acentos (decomposição NFD -> filtra marcas sem espaçamento)
     """
-    # Normalize to NFD form (decomposes characters from accents)
+    # Normaliza para a forma NFD (decompõe caracteres de acentos)
     nfkd_form = unicodedata.normalize('NFD', text)
     
-    # Filter out non-spacing mark characters (category 'Mn')
+    # Filtra caracteres de marca sem espaçamento (categoria 'Mn')
     no_accents = "".join([c for c in nfkd_form if unicodedata.category(c) != 'Mn'])
     
-    # Return lowercased (and NFC re-composed mostly just for standard ascii look, though NFD is fine too)
+    # Retorna em minúsculas (e NFC recomposto principalmente para aparência ascii padrão, embora NFD esteja bem também)
     return no_accents.lower()

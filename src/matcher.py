@@ -15,12 +15,12 @@ def find_matches(
     title: str = ""
 ) -> List[MatchEntry]:
     """
-    Searches for keywords in the provided text (case/accent insensitive).
-    Returns a list of MatchEntry objects for every occurrence found.
+    Pesquisa por palavras-chave no texto fornecido (insensível a maiúsculas/acentos).
+    Retorna uma lista de objetos MatchEntry para cada ocorrência encontrada.
     """
     matches: List[MatchEntry] = []
     
-    # Pre-normalize for searching
+    # Pré-normaliza para pesquisa
     searchable_text = normalize_text(text)
     
     for kw in keywords:
@@ -31,22 +31,22 @@ def find_matches(
         start_search_idx = 0
         while True:
             try:
-                # Find keyword index in normalized text
+                # Encontra índice da palavra-chave no texto normalizado
                 idx = searchable_text.index(searchable_kw, start_search_idx)
                 
-                # Extract context from ORIGINAL text using the same index
-                # (Assuming NFD normalization roughly preserves character count/positions for Latin script, 
-                # which is generally true for simple accent strip. 
-                # Be careful: if normalization changes length (e.g. ligatures), indices might drift.
-                # However, strict NFD -> filtering non-spacing marks preserves base chars count.)
+                # Extrai contexto do texto ORIGINAL usando o mesmo índice
+                # (Assumindo que a normalização NFD preserva aproximadamente a contagem/posições de caracteres para escrita latina,
+                # o que é geralmente verdade para remoção simples de acentos.
+                # Tenha cuidado: se a normalização alterar o comprimento (por exemplo, ligaduras), os índices podem desviar.
+                # No entanto, estrito NFD -> filtragem de marcas sem espaçamento preserva a contagem de caracteres base.)
                 
                 start_context = max(0, idx - CONTEXT_PADDING)
-                end_context = min(len(text), idx + len(kw) + CONTEXT_PADDING) # Use kw length from original or searchable?
-                # Using searchable_kw length is safer for index math on searchable_text, 
-                # but applied to original text it might be slightly off if accents were stripped.
-                # Use length of match in searchable text for advancing index.
+                end_context = min(len(text), idx + len(kw) + CONTEXT_PADDING) # Usar comprimento de kw original ou pesquisável?
+                # Usar comprimento de searchable_kw é mais seguro para matemática de índice em searchable_text,
+                # mas aplicado ao texto original pode estar ligeiramente errado se acentos foram removidos.
+                # Usa comprimento da correspondência no texto pesquisável para avançar o índice.
                 
-                # Context slice from original text
+                # Fatia de contexto do texto original
                 context_slice = text[start_context:end_context]
                 
                 matches.append(MatchEntry(
@@ -59,11 +59,11 @@ def find_matches(
                     capture_timestamp=datetime.now().isoformat()
                 ))
                 
-                # Advance search
+                # Avança pesquisa
                 start_search_idx = idx + len(searchable_kw)
                 
             except ValueError:
-                # No more matches for this keyword
+                # Sem mais correspondências para esta palavra-chave
                 break
                 
     return matches

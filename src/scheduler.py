@@ -5,12 +5,12 @@ import structlog
 logger = structlog.get_logger()
 
 def create_scheduler():
-    """Create and return a configured BackgroundScheduler."""
+    """Cria e retorna um BackgroundScheduler configurado."""
     return BackgroundScheduler()
 
 def schedule_daily_job(scheduler, job_func, hour=6, minute=0):
     """
-    Schedules the job_func to run daily at the specified time.
+    Agenda a função job_func para executar diariamente no horário especificado.
     """
     trigger = CronTrigger(hour=hour, minute=minute)
     scheduler.add_job(
@@ -22,7 +22,7 @@ def schedule_daily_job(scheduler, job_func, hour=6, minute=0):
     logger.info("job_scheduled", hour=hour, minute=minute)
 
 def start_scheduler(scheduler):
-    """Starts the scheduler."""
+    """Inicia o agendador."""
     try:
         scheduler.start()
         logger.info("scheduler_started")

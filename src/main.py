@@ -9,11 +9,11 @@ logger = structlog.get_logger()
 
 def job_process_dou():
     """
-    Main job function:
-    1. Load configuration.
-    2. Iterate over sections.
-    3. Fetch URLs -> Content.
-    4. Parse, Match, Save.
+    Função principal do job:
+    1. Carrega configuração.
+    2. Itera sobre seções.
+    3. Busca URLs -> Conteúdo.
+    4. Analisa, Corresponde, Salva.
     """
     try:
         cfg = config.load_config()
@@ -33,12 +33,12 @@ def job_process_dou():
                     try:
                         html = downloader.fetch_content(url)
                         
-                        # Parsing
+                        # Análise (Parsing)
                         title = parser.extract_title(html)
-                        # We need Raw text for context, Normalized for matching
+                        # Precisamos do texto cru para contexto, Normalizado para correspondência
                         text_raw = parser.extract_text(html)
                         
-                        # Matching
+                        # Correspondência (Matching)
                         matches = matcher.find_matches(
                             text=text_raw, 
                             keywords=cfg.keywords,
@@ -66,9 +66,9 @@ def job_process_dou():
         logger.critical("job_crashed", error=str(e))
 
 def main():
-    """Entry point."""
-    parser = argparse.ArgumentParser(description="DOU Scrapper Service")
-    parser.add_argument("--run-now", action="store_true", help="Run the scraper immediately for today and exit")
+    """Ponto de entrada."""
+    parser = argparse.ArgumentParser(description="Serviço Raspador DOU")
+    parser.add_argument("--run-now", action="store_true", help="Executa o raspador imediatamente para hoje e sai")
     args = parser.parse_args()
 
     logger.info("service_starting", mode="manual" if args.run_now else "daemon")
@@ -77,7 +77,7 @@ def main():
         cfg = config.load_config()
         config.setup_logging(cfg)
     except Exception as e:
-        print(f"Failed to load config or setup logging: {e}")
+        print(f"Falha ao carregar configuração ou configurar log: {e}")
         return
 
     if args.run_now:
@@ -88,7 +88,7 @@ def main():
 
     sched = scheduler.create_scheduler()
     
-    # Schedule job
+    # Agenda o job
     try:
         h, m = map(int, cfg.schedule.time.split(":"))
         scheduler.schedule_daily_job(sched, job_process_dou, hour=h, minute=m)
@@ -99,7 +99,7 @@ def main():
     
     scheduler.start_scheduler(sched)
     
-    # Keep alive
+    # Mantém vivo
     try:
         while True:
             time.sleep(60)

@@ -6,20 +6,20 @@ import os
 from datetime import datetime
 
 st.set_page_config(
-    page_title="DOU Monitor Report",
+    page_title="Relatório do Monitor DOU",
     page_icon="🗞️",
     layout="wide"
 )
 
 def load_data(data_dir="data"):
     """
-    Loads all JSONL files from the data directory and aggregates them by Article URL.
-    Returns:
-        list[dict]: List of unique articles with their matches.
+    Carrega todos os arquivos JSONL do diretório de dados e os agrega por URL do artigo.
+    Retorna:
+        list[dict]: Lista de artigos únicos com suas correspondências.
     """
     articles_map = {}
     
-    # Find all jsonl files
+    # Encontra todos os arquivos jsonl
     files = glob.glob(os.path.join(data_dir, "*.jsonl"))
     
     for file_path in files:
@@ -37,14 +37,14 @@ def load_data(data_dir="data"):
                         
                     if url not in articles_map:
                         articles_map[url] = {
-                            "title": entry.get("title", "No Title"),
+                            "title": entry.get("title", "Sem Título"),
                             "url": url,
                             "date": entry.get("date"),
                             "section": entry.get("section"),
                             "matches": []
                         }
                     
-                    # Add match details
+                    # Adiciona detalhes da correspondência
                     match_info = {
                         "keyword": entry.get("keyword"),
                         "context": entry.get("context"),
@@ -58,23 +58,23 @@ def load_data(data_dir="data"):
     return list(articles_map.values())
 
 def main():
-    st.title("🗞️ DOU Monitor: Daily Report")
+    st.title("🗞️ Monitor DOU: Relatório Diário")
     
-    # --- Sidebar ---
-    st.sidebar.header("Filters")
+    # --- Barra Lateral ---
+    st.sidebar.header("Filtros")
     
-    # Load Data
+    # Carrega Dados
     if not os.path.exists("data"):
-        st.error("Data directory not found. Please run the scraper first.")
+        st.error("Diretório de dados não encontrado. Por favor, execute o raspador primeiro.")
         return
 
     all_articles = load_data()
     
     if not all_articles:
-        st.info("No data found.")
+        st.info("Nenhum dado encontrado.")
         return
 
-    # Convert to DF for easier filtering of metadata
+    # Converte para DF para filtrar metadados mais facilmente
     df_meta = pd.DataFrame([
         {
             "url": a["url"], 
@@ -85,39 +85,39 @@ def main():
         for a in all_articles
     ])
     
-    # Filter: Date
+    # Filtro: Data
     available_dates = sorted(df_meta["date"].unique(), reverse=True)
-    selected_date = st.sidebar.selectbox("Select Date", available_dates)
+    selected_date = st.sidebar.selectbox("Selecionar Data", available_dates)
     
-    # Filter: Section
+    # Filtro: Seção
     available_sections = sorted(df_meta["section"].unique())
     selected_sections = st.sidebar.multiselect(
-        "Select Sections", 
+        "Selecionar Seções", 
         available_sections, 
         default=available_sections
     )
     
-    # Apply Filters
+    # Aplica Filtros
     filtered_articles = [
         a for a in all_articles 
         if a["date"] == selected_date and a["section"] in selected_sections
     ]
     
-    # Metrics
+    # Métricas
     total_articles = len(filtered_articles)
     total_matches = sum(len(a["matches"]) for a in filtered_articles)
     
     c1, c2, c3 = st.columns(3)
-    c1.metric("Date", selected_date)
-    c2.metric("Articles Found", total_articles)
-    c3.metric("Total Keyword Matches", total_matches)
+    c1.metric("Data", selected_date)
+    c2.metric("Artigos Encontrados", total_articles)
+    c3.metric("Total de Correspondências", total_matches)
     
     st.markdown("---")
     
-    # --- Main Content ---
+    # --- Conteúdo Principal ---
     for article in filtered_articles:
         with st.container():
-            # Header with Title and Badges
+            # Cabeçalho com Título e Emblemas
             col_title, col_badges = st.columns([5, 2])
             
             with col_title:
@@ -125,23 +125,23 @@ def main():
                 st.markdown(f"[{article['url']}]({article['url']})")
                 
             with col_badges:
-                st.caption(f"Section: {article['section']}")
+                st.caption(f"Seção: {article['section']}")
                 matches_count = len(article['matches'])
-                # Using markdown badge equivalent since st.badge might change signatures or not exist in this version
+                # Usando equivalente de emblema markdown pois st.badge pode mudar assinaturas ou não existir nesta versão
                 color = "red" if matches_count > 0 else "grey"
-                st.markdown(f":{color}[Matches: {matches_count}]")
+                st.markdown(f":{color}[Correspondências: {matches_count}]")
 
-            # Expander for Contexts
-            with st.expander("View Matches Context"):
+            # Expansor para Contextos
+            with st.expander("Ver Contexto das Correspondências"):
                 for i, match in enumerate(article["matches"]):
-                    st.markdown(f"**Match #{i+1}** - Keyword: `{match['keyword']}`")
-                    # Highlight keyword in context (simple bolding)
+                    st.markdown(f"**Correspondência #{i+1}** - Palavra-chave: `{match['keyword']}`")
+                    # Destaca palavra-chave no contexto (negrito simples)
                     context = match['context']
                     keyword = match['keyword']
                     
-                    # Case insensitive replace for highlighting
-                    # Note: accurate highlighting can be complex due to regex/normalization
-                    # We'll just display the blockquote for now.
+                    # Substituição insensível a maiúsculas/minúsculas para destaque
+                    # Nota: destaque preciso pode ser complexo devido a regex/normalização
+                    # Vamos apenas exibir o blockquote por enquanto.
                     st.markdown(f"> {context}")
                     st.divider()
                     

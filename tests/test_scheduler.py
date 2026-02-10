@@ -5,37 +5,37 @@ from apscheduler.triggers.cron import CronTrigger
 from src import scheduler
 
 def test_scheduler_setup():
-    """Test that the scheduler is initialized with the correct config."""
+    """Testa se o agendador é inicializado com a configuração correta."""
     sched = scheduler.create_scheduler()
     assert isinstance(sched, BackgroundScheduler)
-    # Check if running? No, we just created it.
+    # Verifica se esta rodando? Não, apenas criamos.
 
 def test_add_job():
-    """Test adding the daily job."""
+    """Testa a adição do job diário."""
     sched = BackgroundScheduler()
     mock_job_func = MagicMock()
     
-    # We want to schedule it at a specific time, e.g., 06:00
+    # Queremos agendar em um horário específico, ex: 06:00
     scheduler.schedule_daily_job(sched, mock_job_func, hour=6, minute=30)
     
     jobs = sched.get_jobs()
     assert len(jobs) == 1
     job = jobs[0]
     
-    # Verify trigger
+    # Verifica gatilho
     assert isinstance(job.trigger, CronTrigger)
-    # fields might be strings or expressions. 
-    # APScheduler cron trigger checking:
-    # We can check str(job.trigger) or inspect fields
-    assert job.trigger.fields[5].name == 'hour' # 5th field is hour in some versions, or check specific attrs
-    # Actually easier to check via string representation or known accessors if available.
-    # But let's just trust it accepted the args.
+    # campos podem ser strings ou expressões.
+    # Verificação de gatilho cron APScheduler:
+    # Podemos verificar str(job.trigger) ou inspecionar campos
+    assert job.trigger.fields[5].name == 'hour' # 5º campo é hora em algumas versões, ou verificar attrs específicos
+    # Na verdade mais fácil verificar via representação string ou assessores conhecidos se disponíveis.
+    # Mas vamos apenas confiar que aceitou os argumentos.
     
-    # Assert func
+    # Afirma func
     assert job.func == mock_job_func
 
 def test_start_scheduler():
-    """Test starting the scheduler."""
+    """Testa o início do agendador."""
     sched = MagicMock(spec=BackgroundScheduler)
     scheduler.start_scheduler(sched)
     sched.start.assert_called_once()
