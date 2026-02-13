@@ -3,7 +3,12 @@ import pandas as pd
 import json
 import glob
 import os
-from datetime import datetime
+from datetime import datetime, date
+
+# Importações locais do projeto
+from src import main as main_scrapper
+from src.models import Config, AdvancedMatchRule, ScheduleConfig, LoggingConfig, StorageConfig
+from src import config
 
 st.set_page_config(
     page_title="Relatório do Monitor DOU",
@@ -57,7 +62,75 @@ def load_data(data_dir="data"):
                     
     return list(articles_map.values())
 
-def main():
+def run_custom_search_view():
+    st.title("🔍 Busca Personalizada no DOU")
+    
+    with st.form("search_form"):
+        col1, col2 = st.columns(2)
+        with col1:
+            search_date = st.date_input("Data da Busca", value=date.today())
+        with col2:
+            search_sections = st.multiselect("Seções", ["dou1", "dou2", "dou3"], default=["dou3"])
+        
+        # Advanced Rules inputs
+        st.subheader("Critérios de Busca")
+        st.info("Preencha pelo menos um campo de termos.")
+        
+        title_terms_str = st.text_input("Termos no Título (separados por vírgula)")
+        body_terms_str = st.text_input("Termos no Corpo (separados por vírgula)")
+        
+        submitted = st.form_submit_button("Executar Busca")
+    
+    if submitted:
+        if not title_terms_str and not body_terms_str:
+            st.error("Por favor adicione termos de busca para Título ou Corpo.")
+            return
+        
+        # Construct Config
+        title_terms = [t.strip() for t in title_terms_str.split(",") if t.strip()]
+        body_terms = [t.strip() for t in body_terms_str.split(",") if t.strip()]
+        
+        rule = AdvancedMatchRule(
+            name="Busca Manual",
+            title_terms=title_terms,
+            body_terms=body_terms
+        )
+        
+        # Create a temporary config
+        # We use dummy values for logging/schedule as they are not used in search directly
+        temp_config = Config(
+            schedule=ScheduleConfig(time="00:00"),
+            logging=LoggingConfig(),
+            storage=StorageConfig(),
+            keywords=[], # No simple keywords, using rules
+            rules=[rule],
+            sections=search_sections
+        )
+        
+        with st.spinner("Executando raspagem... isso pode levar alguns segundos."):
+            try:
+                matches = main_scrapper.run_scraper(temp_config, search_date)
+                
+                if not matches:
+                    st.warning("Nenhuma correspondência encontrada com os critérios informados.")
+                else:
+                    st.success(f"Encontradas {len(matches)} correspondências!")
+                    
+                    # Store matches in session state or display directly
+                    st.divider()
+                    for i, match in enumerate(matches):
+                        with st.container():
+                            st.subheader(f"{match.title} (Seção {match.section})")
+                            st.markdown(f"[{match.url}]({match.url})")
+                            st.caption(f"Contexto encontrado:")
+                            st.markdown(f"> {match.context}")
+                            st.divider()
+                            
+            except Exception as e:
+                st.error(f"Erro ao executar a busca: {str(e)}")
+
+
+def run_daily_report_view():
     st.title("🗞️ Monitor DOU: Relatório Diário")
     
     # --- Barra Lateral ---
@@ -85,8 +158,16 @@ def main():
         for a in all_articles
     ])
     
+    if df_meta.empty:
+        st.info("Nenhum dado encontrado nos arquivos.")
+        return
+    
     # Filtro: Data
     available_dates = sorted(df_meta["date"].unique(), reverse=True)
+    if not available_dates:
+         st.warning("Sem datas disponíveis.")
+         return
+
     selected_date = st.sidebar.selectbox("Selecionar Data", available_dates)
     
     # Filtro: Seção
@@ -127,7 +208,6 @@ def main():
             with col_badges:
                 st.caption(f"Seção: {article['section']}")
                 matches_count = len(article['matches'])
-                # Usando equivalente de emblema markdown pois st.badge pode mudar assinaturas ou não existir nesta versão
                 color = "red" if matches_count > 0 else "grey"
                 st.markdown(f":{color}[Correspondências: {matches_count}]")
 
@@ -135,17 +215,20 @@ def main():
             with st.expander("Ver Contexto das Correspondências"):
                 for i, match in enumerate(article["matches"]):
                     st.markdown(f"**Correspondência #{i+1}** - Palavra-chave: `{match['keyword']}`")
-                    # Destaca palavra-chave no contexto (negrito simples)
                     context = match['context']
-                    keyword = match['keyword']
-                    
-                    # Substituição insensível a maiúsculas/minúsculas para destaque
-                    # Nota: destaque preciso pode ser complexo devido a regex/normalização
-                    # Vamos apenas exibir o blockquote por enquanto.
                     st.markdown(f"> {context}")
                     st.divider()
-                    
-            st.divider()
+
+def main():
+    st.sidebar.title("Navegação")
+    # Usa radio ou selectbox para navegação
+    page = st.sidebar.radio("Ir para", ["Relatório Diário", "Busca Personalizada"])
+    
+    if page == "Relatório Diário":
+        run_daily_report_view()
+    elif page == "Busca Personalizada":
+        run_custom_search_view()
 
 if __name__ == "__main__":
     main()
+
