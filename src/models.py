@@ -18,12 +18,19 @@ class StorageConfig:
     format: Literal["jsonl"] = "jsonl"
 
 @dataclass(frozen=True)
+class AdvancedMatchRule:
+    name: str
+    body_terms: List[str]
+    title_terms: List[str] = field(default_factory=list)
+
+@dataclass(frozen=True)
 class Config:
     schedule: ScheduleConfig
     keywords: List[str]
     storage: StorageConfig
     logging: LoggingConfig
     sections: List[str] = field(default_factory=lambda: ["dou1", "dou2", "dou3"])
+    rules: List[AdvancedMatchRule] = field(default_factory=list)
 
 @dataclass
 class MatchEntry:

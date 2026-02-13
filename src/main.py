@@ -19,10 +19,10 @@ def job_process_dou():
         cfg = config.load_config()
         date_today = datetime.date.today()
         
-        logger.info("job_started", date=str(date_today), keywords_count=len(cfg.keywords))
+        logger.info("job_started", date=str(date_today), keywords_count=len(cfg.keywords), rules_count=len(cfg.rules))
         
-        if not cfg.keywords:
-            logger.warning("no_keywords_configured")
+        if not cfg.keywords and not cfg.rules:
+            logger.warning("no_keywords_or_rules_configured")
             return
 
         for section in cfg.sections:
@@ -45,7 +45,8 @@ def job_process_dou():
                             date=date_today.isoformat(),
                             section=section,
                             url=url,
-                            title=title
+                            title=title,
+                            rules=cfg.rules
                         )
                         
                         if matches:

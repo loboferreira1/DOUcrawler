@@ -6,7 +6,7 @@ from typing import TextIO
 import structlog
 import yaml
 
-from .models import Config, LoggingConfig, ScheduleConfig, StorageConfig
+from .models import Config, LoggingConfig, ScheduleConfig, StorageConfig, AdvancedMatchRule
 
 def load_config(config_path: str = "config.yaml") -> Config:
     """
@@ -30,6 +30,16 @@ def load_config(config_path: str = "config.yaml") -> Config:
     storage_data = data.get("storage", {})
     keywords = data.get("keywords", [])
     sections = data.get("sections", ["dou1", "dou2", "dou3"])
+    
+    rules_data = data.get("rules", [])
+    rules = []
+    if rules_data:
+        for r in rules_data:
+            rules.append(AdvancedMatchRule(
+                name=r["name"],
+                body_terms=r.get("body_terms", []),
+                title_terms=r.get("title_terms", [])
+            ))
 
     return Config(
         schedule=ScheduleConfig(**schedule_data),
@@ -37,6 +47,7 @@ def load_config(config_path: str = "config.yaml") -> Config:
         storage=StorageConfig(**storage_data),
         logging=LoggingConfig(**logging_data),
         sections=sections,
+        rules=rules,
     )
 
 def setup_logging(config: Config) -> None:
