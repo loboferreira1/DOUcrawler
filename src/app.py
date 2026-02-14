@@ -114,16 +114,31 @@ def run_custom_search_view():
                 if not matches:
                     st.warning("Nenhuma correspondência encontrada com os critérios informados.")
                 else:
-                    st.success(f"Encontradas {len(matches)} correspondências!")
+                    # Agrega correspondências por URL para evitar duplicatas visuais
+                    unique_articles = {}
+                    for match in matches:
+                        if match.url not in unique_articles:
+                            unique_articles[match.url] = {
+                                "title": match.title,
+                                "section": match.section,
+                                "url": match.url,
+                                "contexts": []
+                            }
+                        unique_articles[match.url]["contexts"].append(match.context)
                     
-                    # Store matches in session state or display directly
+                    st.success(f"Encontradas {len(matches)} correspondências em {len(unique_articles)} publicações!")
+
+                    # Exibe resultados por artigo único
                     st.divider()
-                    for i, match in enumerate(matches):
+                    for url, article in unique_articles.items():
                         with st.container():
-                            st.subheader(f"{match.title} (Seção {match.section})")
-                            st.markdown(f"[{match.url}]({match.url})")
-                            st.caption(f"Contexto encontrado:")
-                            st.markdown(f"> {match.context}")
+                            st.subheader(f"{article['title']} (Seção {article['section']})")
+                            st.markdown(f"[{article['url']}]({article['url']})")
+                            
+                            with st.expander(f"Ver {len(article['contexts'])} trecho(s) encontrado(s)", expanded=True):
+                                for ctx in article['contexts']:
+                                    st.markdown(f"> {ctx}")
+                                    st.markdown("---")
                             st.divider()
                             
             except Exception as e:
