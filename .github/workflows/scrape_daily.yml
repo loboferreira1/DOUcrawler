@@ -1,0 +1,50 @@
+name: "Daily DOU Scrape"
+
+# Schedule: Runs at 08:30 UTC every day (approx 5:30 AM BRT)
+# Workflow dispatch: Allows manual triggering from GitHub UI
+on:
+  schedule:
+    - cron: '30 8 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  scrape-and-report:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Run Scraper (Daily Job)
+        run: |
+          python -m src.main --run-now
+
+      - name: Check for changes
+        id: files_changed
+        run: |
+          git status --porcelain
+          if [[ -n $(git status --porcelain) ]]; then
+            echo "changes=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Commit and Push results
+        if: steps.files_changed.outputs.changes == 'true'
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add data/*.jsonl
+          git commit -m "chore(data): daily scrape update [skip ci]"
+          git push

@@ -42,7 +42,6 @@ venv.bak/
 *.swo
 
 # Project specific
-data/
 logs/
 config.yaml
 coverage.xml
