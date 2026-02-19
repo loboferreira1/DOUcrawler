@@ -1,0 +1,32 @@
+schedule:
+  time: "08:30"
+  timezone: "America/Sao_Paulo"
+
+keywords: [] # Depreciado: use 'rules' abaixo para maior controle
+
+rules:
+  # Exemplo 1: Regra que busca termos no corpo de QUALQUER documento (equivalente antigo 'keywords')
+  - name: "Monitoramento Indígena Geral"
+    title_terms: []
+    body_terms:
+      - "indígena"
+      - "indígenas"
+      - "funai"
+      - "fundação nacional dos povos indígenas"
+
+  # Exemplo 2: Regra específica composta (Título AND Corpo)
+  - name: "Nomeações na Força Nacional"
+    title_terms:
+      - "PORTARIA MJSP"
+    body_terms:
+      - "força nacional"
+
+
+
+storage:
+  output_dir: "data"
+  format: "jsonl"
+
+logging:
+  level: "INFO"
+  file: "logs/scrapper.log"
