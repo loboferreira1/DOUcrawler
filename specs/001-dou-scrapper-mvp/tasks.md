@@ -53,11 +53,29 @@ description: "Task list for Feature 001: Automated Daily DOU Monitor"
 - [X] T019 Implement graceful exit for "No Edition Today" (404 on `leiturajornal`).
 - [X] T020 Dockerfile (optional) or README instructions for running as a service.
 
+## Phase 6: User Story 4 - UI Dashboard
+
+**Goal**: Provide a simple visual interface using Streamlit.
+**Tests**: Streamlit testing framework or acceptance tests.
+
+- [X] T021 [US4] Implement `src/app.py` for "Daily Report" view.
+- [X] T022 [US4] Implement "Custom Search" logic in UI with date filters.
+- [X] T023 [US4] Add `streamlit` to `pyproject.toml` or `requirements.txt`.
+
+## Phase 7: Automation & Deployment (Git Scraper)
+
+**Goal**: Automate execution via GitHub Actions.
+
+- [X] T024 [NFR] Create `.github/workflows/scrape_daily.yml` cron job.
+- [X] T025 [NFR] Configure git commit & push step to persist JSONL data.
+- [X] T026 [NFR] Verify locale/timezone settings in CI runner.
+
 ## Dependencies
 
 - Phase 1 blocks all.
 - Phase 2 & 3 are parallelizable.
 - Phase 4 depends on P2 & P3 components (imports).
+- Phase 6 & 7 depend on functional core.
 
 ## Parallel Execution Examples
 

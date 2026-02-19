@@ -17,13 +17,13 @@ This tool will automate the daily monitoring of the Diário Oficial da União (D
 - `pyyaml` (Config)
 - `python-dateutil`, `pytz` (Time/Dates)
 - `structlog` (Logging)
-- `APScheduler` (Scheduling)
-**Storage**: Local File System (JSON Lines `.jsonl`)
+- `streamlit` (User Interface)
+**Storage**: Local File System (JSON Lines `.jsonl`) persisted via Git.
 **Testing**: `pytest`, `pytest-mock`, `responses` (Strict TDD)
-**Target Platform**: CLI / Background Service (Cross-platform Python)
-**Project Type**: Single Python Project (CLI)
+**Target Platform**: GitHub Actions (Daily Cron) + Streamlit Cloud (UI)
+**Project Type**: Python CLI + Web App
 **Performance Goals**: Complete daily scan < 5 mins; handle ~10 keywords against ~500 pages.
-**Constraints**: No UI, no external API wrappers, strictly defined libs.
+**Constraints**: strictly defined libs.
 **Scale/Scope**: MVP scope (Daily inputs, limited keywords).
 
 ## Constitution Check
@@ -31,7 +31,7 @@ This tool will automate the daily monitoring of the Diário Oficial da União (D
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
 - [x] **Principle I (Quality)**: Senior mindset, no vibe coding.
-- [x] **Principle II (MVP)**: No UI, CLI only, daily scrape.
+- [x] **Principle II (MVP)**: Daily scrape + Basic UI.
 - [x] **Principle III (TDD)**: "Test-First" workflow is acknowledged.
 - [x] **Principle IV (Quality)**: Files <300 lines, extensive linting/typing.
 - [x] **Principle VII (Locale)**: Date/Timezone settings correctly identified.

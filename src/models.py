@@ -22,6 +22,7 @@ class AdvancedMatchRule:
     name: str
     body_terms: List[str]
     title_terms: List[str] = field(default_factory=list)
+    sections: List[str] = field(default_factory=list)
 
 @dataclass(frozen=True)
 class Config:
@@ -29,7 +30,7 @@ class Config:
     keywords: List[str]
     storage: StorageConfig
     logging: LoggingConfig
-    sections: List[str] = field(default_factory=lambda: ["dou1", "dou2", "dou3"])
+    sections: List[str] = field(default_factory=lambda: ["dou1", "dou2", "dou3"]) # Deprecated global default
     rules: List[AdvancedMatchRule] = field(default_factory=list)
 
 @dataclass

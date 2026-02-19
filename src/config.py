@@ -34,18 +34,31 @@ def load_config(config_path: str = "config.yaml") -> Config:
     rules_data = data.get("rules", [])
     rules = []
     if rules_data:
+        # Load rules from yaml data list
         for r in rules_data:
             rules.append(AdvancedMatchRule(
-                name=r["name"],
+                name=r.get("name"),
                 body_terms=r.get("body_terms", []),
-                title_terms=r.get("title_terms", [])
+                title_terms=r.get("title_terms", []),
+                sections=r.get("sections", [])
             ))
 
+    # Construct Config object using unpacked dictionaries for nested configs
+    # We assume the YAML structure matches the dataclass fields
     return Config(
-        schedule=ScheduleConfig(**schedule_data),
+        schedule=ScheduleConfig(
+            time=schedule_data.get("time", "08:30"),
+            timezone=schedule_data.get("timezone", "America/Sao_Paulo")
+        ),
         keywords=keywords,
-        storage=StorageConfig(**storage_data),
-        logging=LoggingConfig(**logging_data),
+        storage=StorageConfig(
+            output_dir=storage_data.get("output_dir", "data"),
+            format=storage_data.get("format", "jsonl")
+        ),
+        logging=LoggingConfig(
+            level=logging_data.get("level", "INFO"),
+            file=logging_data.get("file", "logs/scrapper.log")
+        ),
         sections=sections,
         rules=rules,
     )

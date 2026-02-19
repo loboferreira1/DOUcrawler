@@ -4,245 +4,294 @@ import json
 import glob
 import os
 from datetime import datetime, date
+import logging
+from typing import List
 
-# Importações locais do projeto
+# Local project imports
 from src import main as main_scrapper
-from src.models import Config, AdvancedMatchRule, ScheduleConfig, LoggingConfig, StorageConfig
-from src import config
+from src.models import Config, AdvancedMatchRule, ScheduleConfig, LoggingConfig, StorageConfig, MatchEntry
 
+# Configure logging for Streamlit
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Page configuration
 st.set_page_config(
-    page_title="Relatório do Monitor DOU",
+    page_title="Monitor DOU - Dashboard",
     page_icon="🗞️",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
+
+# Custom CSS for better readability
+st.markdown("""
+<style>
+    .reportview-container {
+        background: #f0f2f6;
+    }
+    .main-header {
+        font-size: 2.5rem;
+        color: #1E3A8A; 
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+    .card {
+        background-color: white;
+        padding: 1.5rem;
+        border-radius: 10px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        margin-bottom: 1rem;
+        border-left: 5px solid #2563EB;
+    }
+    .match-highlight {
+        background-color: #FEF3C7;
+        padding: 0.2rem 0.5rem;
+        border-radius: 4px;
+        font-weight: bold;
+        color: #92400E;
+    }
+    .metadata {
+        font-size: 0.9em;
+        color: #6B7280;
+        margin-bottom: 0.5rem;
+    }
+    .context-box {
+        font-family: monospace; 
+        font-size: 0.95em; 
+        background-color: #f8f9fa; 
+        padding: 12px; 
+        border-radius: 5px;
+        border: 1px solid #E5E7EB;
+        white-space: pre-wrap;
+    }
+    a {
+        text-decoration: none;
+        color: #2563EB;
+    }
+    a:hover {
+        text-decoration: underline;
+    }
+</style>
+""", unsafe_allow_html=True)
 
 def load_data(data_dir="data"):
     """
-    Carrega todos os arquivos JSONL do diretório de dados e os agrega por URL do artigo.
-    Retorna:
-        list[dict]: Lista de artigos únicos com suas correspondências.
+    Loads all JSONL files from the data directory and aggregates them.
+    Returns:
+        pd.DataFrame: DataFrame containing all unique matches.
     """
-    articles_map = {}
+    all_matches = []
     
-    # Encontra todos os arquivos jsonl
+    # Find all jsonl files
     files = glob.glob(os.path.join(data_dir, "*.jsonl"))
     
     for file_path in files:
         filename = os.path.basename(file_path)
-        keyword_slug = filename.replace(".jsonl", "")
+        keyword_group = filename.replace(".jsonl", "")
         
         with open(file_path, "r", encoding="utf-8") as f:
             for line in f:
                 try:
                     entry = json.loads(line)
-                    url = entry.get("url")
-                    
-                    if not url:
-                        continue
-                        
-                    if url not in articles_map:
-                        articles_map[url] = {
-                            "title": entry.get("title", "Sem Título"),
-                            "url": url,
-                            "date": entry.get("date"),
-                            "section": entry.get("section"),
-                            "matches": []
-                        }
-                    
-                    # Adiciona detalhes da correspondência
-                    match_info = {
-                        "keyword": entry.get("keyword"),
-                        "context": entry.get("context"),
-                        "source_file": filename
-                    }
-                    articles_map[url]["matches"].append(match_info)
-                    
+                    entry["source_file"] = filename
+                    entry["keyword_group"] = keyword_group
+                    all_matches.append(entry)
                 except json.JSONDecodeError:
                     continue
                     
-    return list(articles_map.values())
+    if not all_matches:
+        return pd.DataFrame()
+        
+    df = pd.DataFrame(all_matches)
+    # Convert date string to datetime objects for sorting
+    if "date" in df.columns:
+        # Some dates might be DD/MM/YYYY or YYYY-MM-DD depending on source, let's try to normalize
+        # Assuming ISO format from matcher.py (date.isoformat())
+        df["date_obj"] = pd.to_datetime(df["date"], errors='coerce').dt.date
+        df = df.sort_values(by=["date_obj", "section"], ascending=[False, True])
+    
+    return df
+
+def render_match_card(row):
+    """Renders a single match as a card."""
+    with st.container():
+        st.markdown(f"""
+        <div class="card">
+            <h4><a href="{row['url']}" target="_blank">{row.get('title', 'Sem Título')} 🔗</a></h4>
+            <div class="metadata">
+                📅 <strong>Data:</strong> {row.get('date')} &nbsp;|&nbsp; 
+                📑 <strong>Seção:</strong> {str(row.get('section', 'N/A')).upper()} &nbsp;|&nbsp; 
+                🔑 <strong>Termo:</strong> <span class="match-highlight">{row.get('keyword')}</span>
+            </div>
+            <div class="context-box">...{row.get('context', '').strip()}...</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+def run_daily_report_view():
+    st.markdown('<h1 class="main-header">📅 Relatório Diário</h1>', unsafe_allow_html=True)
+    
+    if not os.path.exists("data"):
+        st.info("📭 Nenhum dado encontrado. A pasta 'data' ainda não existe.")
+        return
+
+    df = load_data()
+    
+    if df.empty:
+        st.info("📭 Nenhum dado encontrado nos arquivos JSONL.")
+        return
+
+    # Sidebar Filters
+    st.sidebar.header("Filtros")
+    
+    all_dates = sorted([str(d) for d in df['date'].unique()], reverse=True) if 'date' in df.columns else []
+    all_keywords = sorted(df['keyword_group'].unique()) if 'keyword_group' in df.columns else []
+    
+    selected_date = st.sidebar.selectbox("Filtrar por Data", ["Todas"] + list(all_dates))
+    selected_keywords = st.sidebar.multiselect("Filtrar por Grupo de Termo", all_keywords)
+    
+    # Apply filters
+    filtered_df = df.copy()
+    if selected_date != "Todas":
+        filtered_df = filtered_df[filtered_df['date'] == selected_date]
+    if selected_keywords:
+        filtered_df = filtered_df[filtered_df['keyword_group'].isin(selected_keywords)]
+    
+    # Display metrics
+    c1, c2 = st.columns(2)
+    c1.metric("Total de Ocorrências", len(filtered_df))
+    c2.metric("Artigos Únicos", filtered_df['url'].nunique() if not filtered_df.empty else 0)
+    
+    st.markdown("---")
+    
+    if filtered_df.empty:
+        st.warning("Nenhum resultado para os filtros selecionados.")
+    else:
+        # Group by date for cleaner display
+        dates = filtered_df['date'].unique()
+        for d in dates:
+            st.subheader(f"🗓️ {d}")
+            date_df = filtered_df[filtered_df['date'] == d]
+            for _, row in date_df.iterrows():
+                render_match_card(row)
 
 def run_custom_search_view():
-    st.title("🔍 Busca Personalizada no DOU")
-    
-    with st.form("search_form"):
+    st.markdown('<h1 class="main-header">🔍 Busca Personalizada</h1>', unsafe_allow_html=True)
+    st.markdown("Execute uma busca em tempo real no DOU. **Os resultados não são salvos.**")
+
+    with st.form("custom_search_form"):
         col1, col2 = st.columns(2)
         with col1:
-            search_date = st.date_input("Data da Busca", value=date.today())
+            search_date = st.date_input("Data da Edição", value=date.today())
         with col2:
-            search_sections = st.multiselect("Seções", ["dou1", "dou2", "dou3"], default=["dou3"])
+            search_sections = st.multiselect(
+                "Seções do DOU", 
+                ["dou1", "dou2", "dou3", "dou1e", "dou2e", "dou3e"], 
+                default=["dou1", "dou2", "dou3"]
+            )
         
-        # Advanced Rules inputs
+        st.write("---")
         st.subheader("Critérios de Busca")
-        st.info("Preencha pelo menos um campo de termos.")
+        st.caption("Preencha pelo menos um dos campos abaixo (termos separados por vírgula).")
+
+        title_input = st.text_input(
+            "Termos no Título", 
+            placeholder="Ex: PORTARIA, DECRETO",
+            help="Busca termos específicos apenas no título do artigo."
+        )
+
+        body_input = st.text_area(
+            "Termos no Corpo do Texto", 
+            placeholder="Ex: licitação, contratação, nomeação",
+            help="Busca termos no conteúdo completo do artigo."
+        )
         
-        title_terms_str = st.text_input("Termos no Título (separados por vírgula)")
-        body_terms_str = st.text_input("Termos no Corpo (separados por vírgula)")
-        
-        submitted = st.form_submit_button("Executar Busca")
+        submitted = st.form_submit_button("🚀 Executar Busca", type="primary")
     
     if submitted:
-        if not title_terms_str and not body_terms_str:
-            st.error("Por favor adicione termos de busca para Título ou Corpo.")
+        title_terms = [t.strip() for t in title_input.split(",") if t.strip()]
+        body_terms = [t.strip() for t in body_input.split(",") if t.strip()]
+
+        if not title_terms and not body_terms:
+            st.error("⚠️ Por favor, insira pelo menos um termo de busca (Título ou Corpo).")
             return
-        
-        # Construct Config
-        title_terms = [t.strip() for t in title_terms_str.split(",") if t.strip()]
-        body_terms = [t.strip() for t in body_terms_str.split(",") if t.strip()]
-        
-        rule = AdvancedMatchRule(
-            name="Busca Manual",
+            
+        if not search_sections:
+            st.error("⚠️ Selecione pelo menos uma seção.")
+            return
+
+        # Create a rule for this search
+        search_rule = AdvancedMatchRule(
+            name="Busca Personalizada",
             title_terms=title_terms,
             body_terms=body_terms
         )
         
-        # Create a temporary config
-        # We use dummy values for logging/schedule as they are not used in search directly
+        # Create temporary config using the rule
+        # The scraper will use this rule to match content
         temp_config = Config(
-            schedule=ScheduleConfig(time="00:00"),
-            logging=LoggingConfig(),
-            storage=StorageConfig(),
-            keywords=[], # No simple keywords, using rules
-            rules=[rule],
-            sections=search_sections
+            schedule=ScheduleConfig(time="00:00"), # Dummy
+            keywords=[], # Empty, we use rules
+            storage=StorageConfig(output_dir="temp_data"), # Dummy
+            logging=LoggingConfig(level="INFO"),
+            sections=search_sections,
+            rules=[search_rule]
         )
         
-        with st.spinner("Executando raspagem... isso pode levar alguns segundos."):
+        with st.spinner(f"Buscando em {len(search_sections)} seções de {search_date}..."):
             try:
-                matches = main_scrapper.run_scraper(temp_config, search_date)
+                # Call scraper with save_results=False
+                # Note: main.run_scraper returns List[MatchEntry]
+                results = main_scrapper.run_scraper(temp_config, search_date, save_results=False)
                 
-                if not matches:
-                    st.warning("Nenhuma correspondência encontrada com os critérios informados.")
-                else:
-                    # Agrega correspondências por URL para evitar duplicatas visuais
-                    unique_articles = {}
-                    for match in matches:
-                        if match.url not in unique_articles:
-                            unique_articles[match.url] = {
-                                "title": match.title,
-                                "section": match.section,
-                                "url": match.url,
-                                "contexts": []
-                            }
-                        unique_articles[match.url]["contexts"].append(match.context)
+                if results:
+                    # Count unique documents
+                    unique_docs = set(m.url for m in results)
+                    st.success(f"✅ Encontradas {len(results)} ocorrências em {len(unique_docs)} documentos!")
                     
-                    st.success(f"Encontradas {len(matches)} correspondências em {len(unique_articles)} publicações!")
-
-                    # Exibe resultados por artigo único
-                    st.divider()
-                    for url, article in unique_articles.items():
-                        with st.container():
-                            st.subheader(f"{article['title']} (Seção {article['section']})")
-                            st.markdown(f"[{article['url']}]({article['url']})")
-                            
-                            with st.expander(f"Ver {len(article['contexts'])} trecho(s) encontrado(s)", expanded=True):
-                                for ctx in article['contexts']:
-                                    st.markdown(f"> {ctx}")
-                                    st.markdown("---")
-                            st.divider()
-                            
+                    # Convert match objects to dicts for display compatibility with render_match_card
+                    results_data = []
+                    for match in results:
+                        results_data.append({
+                            "title": match.title,
+                            "url": match.url,
+                            "date": match.date,
+                            "section": match.section,
+                            "keyword": match.keyword,
+                            "context": match.context
+                        })
+                    
+                    results_df = pd.DataFrame(results_data)
+                    
+                    for _, row in results_df.iterrows():
+                        render_match_card(row)
+                else:
+                    st.warning("📭 Nenhuma ocorrência encontrada para os critérios informados.")
+                    
             except Exception as e:
-                st.error(f"Erro ao executar a busca: {str(e)}")
-
-
-def run_daily_report_view():
-    st.title("🗞️ Monitor DOU: Relatório Diário")
-    
-    # --- Barra Lateral ---
-    st.sidebar.header("Filtros")
-    
-    # Carrega Dados
-    if not os.path.exists("data"):
-        st.error("Diretório de dados não encontrado. Por favor, execute o raspador primeiro.")
-        return
-
-    all_articles = load_data()
-    
-    if not all_articles:
-        st.info("Nenhum dado encontrado.")
-        return
-
-    # Converte para DF para filtrar metadados mais facilmente
-    df_meta = pd.DataFrame([
-        {
-            "url": a["url"], 
-            "date": a["date"], 
-            "section": a["section"], 
-            "match_count": len(a["matches"])
-        } 
-        for a in all_articles
-    ])
-    
-    if df_meta.empty:
-        st.info("Nenhum dado encontrado nos arquivos.")
-        return
-    
-    # Filtro: Data
-    available_dates = sorted(df_meta["date"].unique(), reverse=True)
-    if not available_dates:
-         st.warning("Sem datas disponíveis.")
-         return
-
-    selected_date = st.sidebar.selectbox("Selecionar Data", available_dates)
-    
-    # Filtro: Seção
-    available_sections = sorted(df_meta["section"].unique())
-    selected_sections = st.sidebar.multiselect(
-        "Selecionar Seções", 
-        available_sections, 
-        default=available_sections
-    )
-    
-    # Aplica Filtros
-    filtered_articles = [
-        a for a in all_articles 
-        if a["date"] == selected_date and a["section"] in selected_sections
-    ]
-    
-    # Métricas
-    total_articles = len(filtered_articles)
-    total_matches = sum(len(a["matches"]) for a in filtered_articles)
-    
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Data", selected_date)
-    c2.metric("Artigos Encontrados", total_articles)
-    c3.metric("Total de Correspondências", total_matches)
-    
-    st.markdown("---")
-    
-    # --- Conteúdo Principal ---
-    for article in filtered_articles:
-        with st.container():
-            # Cabeçalho com Título e Emblemas
-            col_title, col_badges = st.columns([5, 2])
-            
-            with col_title:
-                st.subheader(article["title"])
-                st.markdown(f"[{article['url']}]({article['url']})")
-                
-            with col_badges:
-                st.caption(f"Seção: {article['section']}")
-                matches_count = len(article['matches'])
-                color = "red" if matches_count > 0 else "grey"
-                st.markdown(f":{color}[Correspondências: {matches_count}]")
-
-            # Expansor para Contextos
-            with st.expander("Ver Contexto das Correspondências"):
-                for i, match in enumerate(article["matches"]):
-                    st.markdown(f"**Correspondência #{i+1}** - Palavra-chave: `{match['keyword']}`")
-                    context = match['context']
-                    st.markdown(f"> {context}")
-                    st.divider()
+                st.error(f"❌ Erro durante a busca: {str(e)}")
+                # Log exception to console/file
+                logger.error(f"Custom search failed: {e}", exc_info=True)
 
 def main():
-    st.sidebar.title("Navegação")
-    # Usa radio ou selectbox para navegação
-    page = st.sidebar.radio("Ir para", ["Relatório Diário", "Busca Personalizada"])
+    st.sidebar.title("App Navigation")
+    
+    # Stylish sidebar navigation
+    page = st.sidebar.radio(
+        "Selecione o Módulo", 
+        ["Relatório Diário", "Busca Personalizada"],
+        index=0
+    )
     
     if page == "Relatório Diário":
         run_daily_report_view()
-    elif page == "Busca Personalizada":
+    else:
         run_custom_search_view()
+        
+    st.sidebar.markdown("---")
+    st.sidebar.info(
+        "**Monitor DOU v1.0**\n\n"
+        "Ferramenta para monitoramento diário do Diário Oficial da União.\n"
+    )
 
 if __name__ == "__main__":
     main()

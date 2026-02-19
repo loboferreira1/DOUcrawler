@@ -33,13 +33,13 @@ As a user, I want the system to scan the full text of the edition for my specifi
 **Independent Test**:
 - Feed sample text with known keywords.
 - Verify that matches are found regardless of case or accents.
-- Verify that extracted context includes ~100-200 chars around the keyword.
+- Verify that extracted context includes 150 chars before and after the keyword.
 
 **Acceptance Scenarios**:
 1. **Given** a text containing "Fundação Nacional dos Povos Indígenas", **When** searching for "fundação nacional dos povos indígenas", **Then** a match is recorded.
 2. **Given** a text with "Ação da Funai em...", **When** searching for "FUNAI", **Then** it matches (case-insensitive).
 3. **Given** a text with "fôrça nacional", **When** searching for "forca nacional", **Then** it matches (accent-insensitive).
-4. **Given** a match is found, **When** data is extracted, **Then** it includes the keyword, ~150 chars of context, source URL, and section.
+4. **Given** a match is found, **When** data is extracted, **Then** it includes the keyword, 150 chars of context (before/after), source URL, and section.
 
 ---
 
@@ -62,10 +62,27 @@ As a user, I want all matches to be saved to a structured file system (JSONL), o
 
 ---
 
+### User Story 4 - UI Dashboard (Priority: P2)
+
+As a user, I want a visual interface (Streamlit) to view daily reports and run custom searches, so that I can interact with the data more easily than reading raw JSONL files.
+
+**Why this priority**: Improves usability for non-technical users.
+
+**Independent Test**:
+- Launch Streamlit app.
+- Check "Daily Report" view loads matches from today.
+- Check "Custom Search" view returns results for a new keyword query.
+
+**Acceptance Scenarios**:
+1. **Given** the app is running, **When** I select "Daily Report", **Then** I see a list of today's matches grouped by keyword.
+2. **Given** I am in "Custom Search", **When** I enter a date range and keyword, **Then** the system scans the fetched data (or fetches on demand if needed) and displays matches.
+
+---
+
 ## Functional Requirements
 
 1. **Scheduling & Execution**:
-   - Run daily on a configurable schedule (default 08:30).
+   - Run daily on a configurable schedule (default 08:30 via GitHub Actions).
    - Timezone: `America/Sao_Paulo`.
 
 2. **Data Acquisition (Fetch)**:
@@ -79,12 +96,13 @@ As a user, I want all matches to be saved to a structured file system (JSONL), o
    - Normalization: NFD/NFC for consistent comparison.
 
 4. **Extraction**:
-   - For every match: capture Keyword, Context (~100-200 chars before/after), Date, Edition Number/Section, Source URL.
+   - For every match: capture Keyword, Context (~150 chars before/after), Date, Edition Number/Section, Source URL.
 
 5. **Storage**:
    - Format: JSON Lines (`.jsonl`).
    - Strategy: Append-only.
    - Organization: Categorized files (e.g., per keyword/category).
+   - **Retention**: Data is committed to the Git repository. The history is indefinite unless manually pruned. The `data/` folder contains only current state, history is in git log.
 
 6. **Configuration**:
    - External configuration file (e.g., YAML) to define:
@@ -93,16 +111,20 @@ As a user, I want all matches to be saved to a structured file system (JSONL), o
      - Schedule time.
      - Log level.
 
+7. **User Interface**:
+   - A minimalistic Streamlit web application.
+   - Features: Dashboard view (daily report), Search form (keyword + date range).
+
 ## Non-Functional Requirements
 
 - **Idempotency**: Preventing duplicate entries for the same match (Key: Date + URL + Keyword + Snippet match).
 - **Resilience**: 
   - Retry on network failures (e.g., 3 attempts).
   - Silent exit on "No Edition" available for the day.
-- **Observability**: Structured logs for all major events (Start, Match Found, Error, End).
+- **Observability**: Structured logs for all major events (Start, Match Found, Error, End) viewable in GitHub Actions logs.
 - **Constraints**: 
-  - Implementation must follow project strict tech stack (Python 3.11+, specific libraries).
-  - No User Interface (CLI/Background process only).
+  - Implementation must follow project strict tech stack (Python 3.11+, specific libraries + Streamlit).
+  - Automation via GitHub Actions (Git Scraping pattern).
 
 ## Success Criteria
 

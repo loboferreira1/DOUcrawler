@@ -7,7 +7,7 @@ from src import config, downloader, parser, matcher, storage, scheduler
 
 logger = structlog.get_logger()
 
-def run_scraper(cfg: config.Config, target_date: datetime.date):
+def run_scraper(cfg: config.Config, target_date: datetime.date, save_results: bool = True):
     """
     Executa o processo de raspagem com a configuração e data fornecidas.
     Retorna uma lista de todas as correspondências encontradas.
@@ -18,12 +18,40 @@ def run_scraper(cfg: config.Config, target_date: datetime.date):
     
     if not cfg.keywords and not cfg.rules:
         logger.warning("no_keywords_or_rules_configured")
+        # Ensure we return empty list if nothing to do, don't crash
         return []
 
-    for section in cfg.sections:
+    # Identifica todas as seções necessárias (Global + por Regra)
+    sections_to_process = set()
+    # Adiciona seções globais se houver keywords simples
+    if cfg.keywords:
+         # Use global sections definition or default
+         global_sections = cfg.sections if hasattr(cfg, 'sections') and cfg.sections else ["dou1", "dou2", "dou3"]
+         sections_to_process.update(global_sections)
+    
+    # Adiciona seções específicas de cada regra
+    for rule in cfg.rules:
+        # Check if rule has sections attribute and it is not empty
+        if hasattr(rule, 'sections') and rule.sections:
+            sections_to_process.update(rule.sections)
+        else:
+             # Se regra não tem seção, usa global
+             global_sections = cfg.sections if hasattr(cfg, 'sections') and cfg.sections else ["dou1", "dou2", "dou3"]
+             sections_to_process.update(global_sections)
+    
+    # Se ainda estiver vazio, fallback
+    if not sections_to_process:
+        sections_to_process = {"dou1", "dou2", "dou3"}
+
+    for section in sorted(list(sections_to_process)):
         logger.info("processing_section", section=section)
         try:
             urls = downloader.fetch_article_urls(section, target_date)
+            # Log se não encontrar URLs
+            if not urls:
+                 logger.info("no_articles_found", section=section)
+                 continue
+
             for url in urls:
                 try:
                     html = downloader.fetch_content(url)
@@ -33,26 +61,46 @@ def run_scraper(cfg: config.Config, target_date: datetime.date):
                     # Precisamos do texto cru para contexto, Normalizado para correspondência
                     text_raw = parser.extract_text(html)
                     
+                    # Filtra regras aplicáveis a esta seção
+                    applicable_rules = []
+                    # Keywords globais
+                    keywords_for_section = []
+                    
+                    # Se houver keywords globais e a seção atual estiver na lista de seções globais
+                    global_sections = cfg.sections if hasattr(cfg, 'sections') and cfg.sections else ["dou1", "dou2", "dou3"]
+                    if section in global_sections:
+                        keywords_for_section = cfg.keywords
+
+                    for r in cfg.rules:
+                         # Se a regra define seções, verifica se a atual está incluída.
+                         # Se lista de seções da regra for vazia, assume fallback para globais (ou todas, dependendo da interpretação. Vamos assumir todas/globais.)
+                         if not hasattr(r, 'sections') or not r.sections or section in r.sections:
+                             applicable_rules.append(r)
+
                     # Correspondência (Matching)
                     matches = matcher.find_matches(
                         text=text_raw, 
-                        keywords=cfg.keywords,
+                        keywords=keywords_for_section,
                         date=target_date.isoformat(),
                         section=section,
                         url=url,
                         title=title,
-                        rules=cfg.rules
+                        rules=applicable_rules
                     )
                     
                     if matches:
                         logger.info("matches_found", url=url, count=len(matches))
                         for match in matches:
-                            storage.save_match(match, cfg.storage)
-                            logger.info("match_saved", keyword=match.keyword)
+                            if save_results:
+                                storage.save_match(match, cfg.storage)
+                                logger.info("match_saved", keyword=match.keyword)
                             all_matches.append(match)
                         
                 except Exception as e:
                         logger.error("article_processing_failed", url=url, error=str(e))
+                        
+        except Exception as e:
+            logger.error("section_processing_failed", section=section, error=str(e))
                         
         except Exception as e:
             logger.error("section_processing_failed", section=section, error=str(e))
