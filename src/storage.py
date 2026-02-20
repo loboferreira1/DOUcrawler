@@ -25,8 +25,10 @@ def save_match(match: MatchEntry, config: StorageConfig) -> None:
     output_dir = Path(config.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     
-    # Determina o nome do arquivo a partir da palavra-chave
-    safe_keyword = slugify(match.keyword)
+    # Determina o nome do arquivo a partir da regra ou palavra-chave (keyword_group)
+    # Se keyword_group estiver vazio (legado), usa keyword
+    group_name = match.keyword_group if match.keyword_group else match.keyword
+    safe_keyword = slugify(group_name)
     file_path = output_dir / f"{safe_keyword}.jsonl"
     
     # Prepara dados

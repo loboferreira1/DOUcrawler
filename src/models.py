@@ -42,3 +42,4 @@ class MatchEntry:
     url: str
     capture_timestamp: str
     title: str = ""
+    keyword_group: str = ""

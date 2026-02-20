@@ -48,7 +48,8 @@ def find_matches(
                     section=section,
                     url=url,
                     title=title,
-                    capture_timestamp=datetime.now().isoformat()
+                    capture_timestamp=datetime.now().isoformat(),
+                    keyword_group=kw  # Para keywords simples, o grupo é a própria keyword
                 ))
                 
                 start_search_idx = idx + len(searchable_kw)
@@ -78,13 +79,14 @@ def find_matches(
             # Se a regra NÃO tem body terms, e passou no title_terms, é match
             if not rule.body_terms:
                 matches.append(MatchEntry(
-                    keyword=rule.name,
+                    keyword=rule.name, # No caso de só título, o termo é o próprio nome da regra
                     context=f"Alerta de Título: {title}",
                     date=date,
                     section=section,
                     url=url,
                     title=title,
-                    capture_timestamp=datetime.now().isoformat()
+                    capture_timestamp=datetime.now().isoformat(),
+                    keyword_group=rule.name
                 ))
                 continue
 
@@ -104,13 +106,14 @@ def find_matches(
                         context_slice = text[start_context:end_context]
                         
                         matches.append(MatchEntry(
-                            keyword=rule.name, # Usa o nome da regra como keyword principal
+                            keyword=term, # O termo especfico encontrado
                             context=context_slice,
                             date=date,
                             section=section,
                             url=url,
                             title=title,
-                            capture_timestamp=datetime.now().isoformat()
+                            capture_timestamp=datetime.now().isoformat(),
+                            keyword_group=rule.name # Agrupamento pelo nome da regra
                         ))
                         
                         start_search_idx = idx + len(searchable_term)

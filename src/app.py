@@ -9,6 +9,7 @@ from typing import List
 
 # Local project imports
 from src import main as main_scrapper
+from src.config import load_config
 from src.models import Config, AdvancedMatchRule, ScheduleConfig, LoggingConfig, StorageConfig, MatchEntry
 
 # Configure logging for Streamlit
@@ -87,14 +88,26 @@ def load_data(data_dir="data"):
     
     for file_path in files:
         filename = os.path.basename(file_path)
-        keyword_group = filename.replace(".jsonl", "")
+        # Default group from filename (slugified) as fallback
+        default_group = filename.replace(".jsonl", "")
         
         with open(file_path, "r", encoding="utf-8") as f:
             for line in f:
                 try:
                     entry = json.loads(line)
                     entry["source_file"] = filename
-                    entry["keyword_group"] = keyword_group
+                    # Use 'keyword_group' from JSON if available, otherwise use filename
+                    # If older data, 'keyword' holds the group name
+                    if "keyword_group" in entry and entry["keyword_group"]:
+                        entry["keyword_group"] = entry["keyword_group"]
+                    elif "keyword" in entry:
+                         # Heuristic: if keyword looks like a rule name (Capitalized), treat as group
+                         # But easier is just to rely on what we have. 
+                         # For legacy data, keyword IS the group.
+                         entry["keyword_group"] = entry["keyword"] 
+                    else:
+                        entry["keyword_group"] = default_group
+                        
                     all_matches.append(entry)
                 except json.JSONDecodeError:
                     continue
@@ -113,7 +126,14 @@ def load_data(data_dir="data"):
     return df
 
 def render_match_card(row):
-    """Renders a single match as a card."""
+    """Renders a single match as a card with grouped context snippets."""
+    keywords = row['keyword']
+    contexts = row['context']
+    keyword_group = row.get('keyword_group', 'Geral')
+    
+    match_count = len(keywords)
+    unique_keywords = list(set(keywords))
+    
     with st.container():
         st.markdown(f"""
         <div class="card">
@@ -121,11 +141,21 @@ def render_match_card(row):
             <div class="metadata">
                 📅 <strong>Data:</strong> {row.get('date')} &nbsp;|&nbsp; 
                 📑 <strong>Seção:</strong> {str(row.get('section', 'N/A')).upper()} &nbsp;|&nbsp; 
-                🔑 <strong>Termo:</strong> <span class="match-highlight">{row.get('keyword')}</span>
+                📂 <strong>Grupo:</strong> {keyword_group} &nbsp;|&nbsp; 
+                🔢 <strong>Ocorrências:</strong> {match_count}
             </div>
-            <div class="context-box">...{row.get('context', '').strip()}...</div>
+            <div style="margin-top: 10px;">
+                <strong>Termos específicos encontrados:</strong> 
+                {' '.join([f'<span class="match-highlight">{k}</span>' for k in unique_keywords])}
+            </div>
         </div>
         """, unsafe_allow_html=True)
+        
+        with st.expander(f"Ver {match_count} trecho(s) do contexto"):
+            for i, (kw, ctx) in enumerate(zip(keywords, contexts)):
+                st.markdown(f"**#{i+1} - Termo: `{kw}`**")
+                st.markdown(f"""<div class="context-box">...{ctx.strip()}...</div>""", unsafe_allow_html=True)
+                st.markdown("---")
 
 def run_daily_report_view():
     st.markdown('<h1 class="main-header">📅 Relatório Diário</h1>', unsafe_allow_html=True)
@@ -143,8 +173,17 @@ def run_daily_report_view():
     # Sidebar Filters
     st.sidebar.header("Filtros")
     
+    # Load config to get all rule names (for consistent display)
+    cfg = load_config()
+    configured_rules = {rule.name for rule in cfg.rules}
+    
+    # Get available groups from data
+    data_groups = sorted(df['keyword_group'].unique()) if 'keyword_group' in df.columns else []
+    
+    # Combine configured rules and data groups
+    all_keywords = sorted(list(configured_rules.union(data_groups)))
+    
     all_dates = sorted([str(d) for d in df['date'].unique()], reverse=True) if 'date' in df.columns else []
-    all_keywords = sorted(df['keyword_group'].unique()) if 'keyword_group' in df.columns else []
     
     selected_date = st.sidebar.selectbox("Filtrar por Data", ["Todas"] + list(all_dates))
     selected_keywords = st.sidebar.multiselect("Filtrar por Grupo de Termo", all_keywords)
@@ -156,22 +195,60 @@ def run_daily_report_view():
     if selected_keywords:
         filtered_df = filtered_df[filtered_df['keyword_group'].isin(selected_keywords)]
     
+    # Group by URL to consolidate matches per article
+    if not filtered_df.empty:
+        # First ensure we have valid values
+        filtered_df['title'] = filtered_df['title'].fillna("Sem Título")
+        
+        grouped_df = filtered_df.groupby('url').agg({
+            'title': 'first',
+            'date': 'first',
+            'section': 'first',
+            'keyword': list,
+            'context': list,
+            'keyword_group': 'first' # Aggregate keyword group to file level (heuristic)
+        }).reset_index()
+    else:
+        grouped_df = pd.DataFrame()
+
     # Display metrics
     c1, c2 = st.columns(2)
-    c1.metric("Total de Ocorrências", len(filtered_df))
-    c2.metric("Artigos Únicos", filtered_df['url'].nunique() if not filtered_df.empty else 0)
+    
+    # Calculate totals
+    total_occurrences = len(filtered_df)
+    unique_articles = len(grouped_df)
+    
+    c1.metric("Total de Ocorrências", total_occurrences)
+    c2.metric("Artigos Únicos", unique_articles)
     
     st.markdown("---")
     
-    if filtered_df.empty:
+    if grouped_df.empty:
         st.warning("Nenhum resultado para os filtros selecionados.")
     else:
-        # Group by date for cleaner display
-        dates = filtered_df['date'].unique()
-        for d in dates:
-            st.subheader(f"🗓️ {d}")
-            date_df = filtered_df[filtered_df['date'] == d]
-            for _, row in date_df.iterrows():
+        # Sort by date
+        # Convert date to datetime for proper sorting
+        grouped_df['date_obj'] = pd.to_datetime(grouped_df['date'], format='%d/%m/%Y', errors='coerce').dt.date
+        
+        # fallback for any parsing failures
+        mask = grouped_df['date_obj'].isna()
+        if mask.any():
+            # try ISO
+            grouped_df.loc[mask, 'date_obj'] = pd.to_datetime(grouped_df.loc[mask, 'date'], errors='coerce').dt.date
+
+        grouped_df = grouped_df.sort_values(by=['date_obj', 'section'], ascending=[False, True])
+        
+        dates_obj = sorted(grouped_df['date_obj'].dropna().unique(), reverse=True)
+        
+        for date_val in dates_obj:
+            # Format date for display
+            display_date = date_val.strftime("%d/%m/%Y")
+            st.subheader(f"🗓️ {display_date}")
+            
+            # Filter for this date
+            day_matches = grouped_df[grouped_df['date_obj'] == date_val]
+            
+            for _, row in day_matches.iterrows():
                 render_match_card(row)
 
 def run_custom_search_view():
@@ -260,9 +337,20 @@ def run_custom_search_view():
                             "context": match.context
                         })
                     
+                    # Group custom search results by URL as well
                     results_df = pd.DataFrame(results_data)
+                    if not results_df.empty:
+                         grouped_results = results_df.groupby('url').agg({
+                            'title': 'first',
+                            'date': 'first',
+                            'section': 'first',
+                            'keyword': list,
+                            'context': list
+                        }).reset_index()
+                    else:
+                        grouped_results = pd.DataFrame()
                     
-                    for _, row in results_df.iterrows():
+                    for _, row in grouped_results.iterrows():
                         render_match_card(row)
                 else:
                     st.warning("📭 Nenhuma ocorrência encontrada para os critérios informados.")
@@ -273,7 +361,7 @@ def run_custom_search_view():
                 logger.error(f"Custom search failed: {e}", exc_info=True)
 
 def main():
-    st.sidebar.title("App Navigation")
+    st.sidebar.title("Opções")
     
     # Stylish sidebar navigation
     page = st.sidebar.radio(
