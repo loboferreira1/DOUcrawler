@@ -43,7 +43,6 @@ venv.bak/
 
 # Project specific
 logs/
-config.yaml
 coverage.xml
 .coverage
 htmlcov/
