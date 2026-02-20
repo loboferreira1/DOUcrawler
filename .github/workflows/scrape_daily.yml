@@ -1,10 +1,10 @@
 name: "Daily DOU Scrape"
 
-# Schedule: Runs at 08:30 UTC every day (approx 5:30 AM BRT)
+# Schedule: Runs at 10:00 UTC every day (approx 7:00 AM BRT)
 # Workflow dispatch: Allows manual triggering from GitHub UI
 on:
   schedule:
-    - cron: '30 8 * * *'
+    - cron: '0 10 * * *'
   workflow_dispatch:
 
 permissions:
