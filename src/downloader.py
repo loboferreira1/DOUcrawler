@@ -53,8 +53,32 @@ def fetch_content(url: str) -> str:
     Busca o conteúdo de uma URL com tentativas repetidas.
     """
     logger.info("fetching_url", url=url)
+    
+    # Random sleep inside fetch_content itself, to throttle per-article requests
+    import time
+    import random
+    time.sleep(random.uniform(5.0, 12.0))
+
     try:
-        response = requests.get(url, headers=HEADERS, timeout=30)
+        # Extra headers to mimic a real browser request even more closely
+        extra_headers = {
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+            "Accept-Language": "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7",
+            "Cache-Control": "max-age=0",
+            "Sec-Ch-Ua": '"Not A(Brand";v="99", "Google Chrome";v="121", "Chromium";v="121"',
+            "Sec-Ch-Ua-Mobile": "?0",
+            "Sec-Ch-Ua-Platform": '"Windows"',
+            "Sec-Fetch-Dest": "document",
+            "Sec-Fetch-Mode": "navigate",
+            "Sec-Fetch-Site": "none",
+            "Sec-Fetch-User": "?1",
+            "Upgrade-Insecure-Requests": "1"
+        }
+        
+        # Combine default headers (which might be updated by caller) with extra headers
+        request_headers = {**HEADERS, **extra_headers}
+
+        response = requests.get(url, headers=request_headers, timeout=60)
         response.raise_for_status()
         return response.text
     except requests.RequestException as e:

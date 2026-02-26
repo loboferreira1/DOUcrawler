@@ -6,15 +6,6 @@ keywords: [] # Depreciado: use 'rules' abaixo para maior controle
 
 rules:
   # Exemplo 1: Regra que busca termos no corpo de QUALQUER documento (default seções)
-  - name: "Monitoramento Indígena Geral"
-    title_terms: []
-    body_terms:
-      - "terra indígena"
-      - "terras indígenas"
-      - "povos originários"
-    sections: ["dou1", "dou2", "dou3"]
-
-  # Exemplo 2: Regra específica composta (Título AND Corpo) apenas em Seção 2
   - name: "Nomeações na Força Nacional"
     title_terms:
       - "PORTARIA MJSP"
