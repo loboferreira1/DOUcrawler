@@ -2,7 +2,7 @@ import re
 import datetime
 import requests
 from bs4 import BeautifulSoup
-from urllib.parse import urljoin
+from urllib.parse import urljoin, unquote
 import structlog
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception
 
@@ -118,4 +118,69 @@ def fetch_article_urls(section: str, date: datetime.date) -> list[str]:
 
     logger.info("finished_crawling_section", total_urls=len(collected_urls))
     return list(collected_urls)
+
+def apply_url_filtering(urls: list[str], rules: list) -> list[str]:
+    """
+    Filtra a lista de URLs baseada nas regras de Title Terms.
+    Se uma regra tiver title_terms, a URL (slug) deve conter pelo menos um deles.
+    Se uma regra não tiver title_terms (só body_terms), não podemos filtrar (retorna tudo).
+    """
+    if not rules:
+        return urls
+        
+    # Check if we can filter at all
+    filterable_rules = []
+    has_unfilterable_rule = False
+    
+    for rule in rules:
+        # Check attribute access safely (dict vs object)
+        title_terms = getattr(rule, 'title_terms', []) if hasattr(rule, 'title_terms') else rule.get('title_terms', [])
+        
+        if not title_terms:
+            # Rule has no title restrictions -> must check body -> must download everything
+            has_unfilterable_rule = True
+            break
+        
+        filterable_rules.append(title_terms)
+    
+    if has_unfilterable_rule:
+        logger.info("filtering_skipped", reason="has_unfilterable_rules")
+        return urls
+        
+    # Filter Logic
+    filtered_urls = []
+    logger.info("filtering_started", input_count=len(urls), rule_count=len(filterable_rules))
+    
+    # Flatten terms for quicker check first? No, need to check per rule logic context if needed, 
+    # but actual logic is: Is this URL relevant for ANY rule?
+    # Yes, if it matches Rule A OR Rule B.
+    
+    all_relevant_terms = set()
+    for terms in filterable_rules:
+        all_relevant_terms.update([t.lower() for t in terms])
+        
+    for url in urls:
+        # slug is the part after "/-/"
+        try:
+            slug_part = url.split("/-/")[-1]
+            # Normalize: "portaria-mjsp-123" -> "portaria mjsp 123"
+            normalized_slug = unquote(slug_part).replace("-", " ").lower()
+            
+            # Check if any relevant term is in the slug
+            # This is an optimization: instead of checking term-by-term for each rule,
+            # since the condition is OR across rules (we want to keep if relevant for ANY),
+            # we just need to see if it matches ANY title term from ANY rule.
+            
+            # Caveat: This assumes simple "contains" logic matching matcher.py
+            for term in all_relevant_terms:
+                if term in normalized_slug:
+                    filtered_urls.append(url)
+                    break
+                    
+        except Exception:
+            # If parsing fails, keep it to be safe
+            filtered_urls.append(url)
+            
+    logger.info("filtering_finished", input_count=len(urls), output_count=len(filtered_urls))
+    return filtered_urls
 

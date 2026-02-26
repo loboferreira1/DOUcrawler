@@ -51,6 +51,21 @@ def run_scraper(cfg: config.Config, target_date: datetime.date, save_results: bo
             if not urls:
                  logger.info("no_articles_found", section=section)
                  continue
+            
+            # Apply Filtering Optimization
+            # Pass only rules that apply to this section (or global rules)
+            section_rules = []
+            for r in cfg.rules:
+                 if not hasattr(r, 'sections') or not r.sections or section in r.sections:
+                     section_rules.append(r)
+            
+            # Also if we have global keywords, we can't filter by rules alone 
+            # (unless we implemented keyword filtering in downloader too, which we haven't)
+            if not cfg.keywords:
+                initial_count = len(urls)
+                urls = downloader.apply_url_filtering(urls, section_rules)
+                if len(urls) < initial_count:
+                    logger.info("urls_filtered", original=initial_count, remaining=len(urls))
 
             for url in urls:
                 try:
